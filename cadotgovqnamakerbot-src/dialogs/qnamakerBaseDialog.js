@@ -1,6 +1,8 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
+const { MicrosoftTranslator } = require('../translation/microsoftTranslator');
+
 const {
     ComponentDialog,
     DialogTurnStatus,
@@ -8,6 +10,7 @@ const {
 } = require('botbuilder-dialogs');
 
 const { QnACardBuilder } = require('../utils/qnaCardBuilder');
+const MStranslator = new MicrosoftTranslator(process.env.TRANSLATOR_TEXT_SUBSCRIPTION_KEY);
 
 // Default parameters
 const DefaultThreshold = 0.3;
@@ -113,7 +116,8 @@ class QnAMakerBaseDialog extends ComponentDialog {
                     suggestedQuestions.push(element.questions[0]);
                 });
                 var qnaDialogResponseOptions = dialogOptions[QnADialogResponseOptions];
-                var message = QnACardBuilder.GetSuggestionCard(suggestedQuestions, qnaDialogResponseOptions.activeLearningCardTitle, qnaDialogResponseOptions.cardNoMatchText);
+                let message = QnACardBuilder.GetSuggestionCard(suggestedQuestions, qnaDialogResponseOptions.activeLearningCardTitle, qnaDialogResponseOptions.cardNoMatchText);
+
                 await stepContext.context.sendActivity(message);
 
                 return { status: DialogTurnStatus.waiting };
@@ -237,6 +241,10 @@ class QnAMakerBaseDialog extends ComponentDialog {
         var responses = stepContext.result;
         if (responses != null) {
             if (responses.length > 0) {
+                let emptyVar = '';
+
+                [responses[0].answer, emptyVar] = await MStranslator.translate(responses[0].answer, stepContext.context.activity.language);
+
                 await stepContext.context.sendActivity(responses[0].answer);
             } else {
                 await stepContext.context.sendActivity(qnaDialogResponseOptions.noAnswer);

@@ -5,7 +5,13 @@
 
 // Import required packages
 const path = require('path');
+const request = require('request');
+const uuidv4 = require('uuid/v4')
 const restify = require('restify');
+const { MicrosoftTranslator } = require('./translation/microsoftTranslator');
+const { TranslatorMiddleware } = require('./translation/translatorMiddleware');
+const LANGUAGE_PREFERENCE = 'language_preference';
+
 
 // Import required bot services. See https://aka.ms/bot-services to learn more about the different parts of a bot.
 const { BotFrameworkAdapter, ConversationState, MemoryStorage, UserState } = require('botbuilder');
@@ -58,6 +64,11 @@ const memoryStorage = new MemoryStorage();
 const conversationState = new ConversationState(memoryStorage);
 const userState = new UserState(memoryStorage);
 
+const languagePreferenceProperty = userState.createProperty(LANGUAGE_PREFERENCE);
+
+const translator = new MicrosoftTranslator(process.env.TRANSLATOR_TEXT_SUBSCRIPTION_KEY);
+adapter.use(new TranslatorMiddleware(translator, languagePreferenceProperty));
+
 var endpointHostName = process.env.QnAEndpointHostName;
 if (!endpointHostName.startsWith('https://')) {
     endpointHostName = 'https://' + endpointHostName;
@@ -77,7 +88,7 @@ const qnaService = new QnAMaker({
 const dialog = new RootDialog(qnaService);
 
 // Create the bot's main handler.
-const bot = new QnABot(conversationState, userState, dialog);
+const bot = new QnABot(conversationState, userState, dialog, languagePreferenceProperty);
 
 // Create HTTP server
 const server = restify.createServer();
@@ -90,7 +101,6 @@ server.listen(process.env.port || process.env.PORT || 3978, function() {
 // Listen for incoming requests.
 server.post('/api/messages', (req, res) => {
     adapter.processActivity(req, res, async (turnContext) => {
-        // Route the message to the bot's main handler.
         await bot.run(turnContext);
     });
 });
